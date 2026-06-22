@@ -37,7 +37,6 @@ async def get_from_url(url: str):
 
             html: str | None = await response.text()
             serialized = json.loads(html)
-            print(serialized)
             return serialized
 
 async def get_team_info(team_id: str) -> dict[str, Any]:
