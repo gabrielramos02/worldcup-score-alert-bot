@@ -6,9 +6,14 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 class Subscription(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     chat_id: str = Field(nullable=False)
-    team_id: int = Field(nullable=False)
+    team_id: int = Field(nullable=False, foreign_key="teams.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(), nullable=False)
 
+class Teams(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    team_name: str = Field(nullable=False)
+    logo_url: str
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(), nullable=False)
 
 engine = create_engine("sqlite:///database/database.db")
 
@@ -35,3 +40,12 @@ async def get_subscription_for_team(chat_id: str, team_id: int) -> bool:
         statement = select(Subscription).where(Subscription.chat_id == chat_id, Subscription.team_id == team_id)
         results = session.exec(statement)
         return  results.first() is not None
+
+async def remove_subscription(chat_id: str, team_id: int):
+    with Session(engine) as session:
+        statement = select(Subscription).where(Subscription.chat_id == chat_id, Subscription.team_id == team_id)
+        results = session.exec(statement)
+        subscription = results.first()
+        if subscription:
+            session.delete(subscription)
+            session.commit()

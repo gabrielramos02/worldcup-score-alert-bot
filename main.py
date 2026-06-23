@@ -18,7 +18,7 @@ import logging
 
 from src.api_request import get_from_url, get_team_info, get_teams_list
 from src.config import BOT_TOKEN
-from database.manager import get_subscription_for_team, test_database, add_subscription
+from database.manager import get_subscription_for_team, remove_subscription, test_database, add_subscription
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,12 +54,9 @@ async def team_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=str(update.message.chat.id), team_id=int(team_id)
         )
         sub_icon = suscribed and "✅" or "❌"
+        callback_data = suscribed and f"unsub{team_id}" or f"sub{team_id}"
         keyboard = [
-            [
-                InlineKeyboardButton(
-                    f"Suscribed {sub_icon}", callback_data=f"sub{team_id}"
-                )
-            ]
+            [InlineKeyboardButton(f"Suscribed {sub_icon}", callback_data=callback_data)]
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -73,30 +70,54 @@ async def team_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def sub_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if query and query.data:
-        team_id = query.data[3:]
-        if query.message and query.message.chat:
-            await add_subscription(
-                chat_id=str(query.message.chat.id),
-                team_id=int(team_id),
-            )
-        sub_icon = "✅" 
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    f"Suscribed {sub_icon}", callback_data=f"sub{team_id}"
+        if query.data.startswith("sub"):
+            team_id = query.data[3:]
+            if query.message and query.message.chat:
+                await add_subscription(
+                    chat_id=str(query.message.chat.id),
+                    team_id=int(team_id),
                 )
+            sub_icon = "✅"
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        f"Suscribed {sub_icon}", callback_data=f"unsub{team_id}"
+                    )
+                ]
             ]
-        ]
-
-        if query.message.text:
-            old_text = query.message.text
+    
+            if query.message.text:
+                old_text = query.message.text
+            else:
+                old_text = "Team Info"
+            _ = await query.answer(text="Subscription added!", show_alert=True)
+            _ = await query.edit_message_text(
+                text=old_text, reply_markup=InlineKeyboardMarkup(keyboard)
+            )
         else:
-            old_text = "Team Info"
-        _ = await query.answer(text= "Subscription added!", show_alert=True)
-        _ = await query.edit_message_text(
-                text = old_text,reply_markup=InlineKeyboardMarkup(keyboard)
-
-        )
+            team_id = query.data[5:]
+            if query.message and query.message.chat:
+                await remove_subscription(
+                    chat_id=str(query.message.chat.id),
+                    team_id=int(team_id),
+                )
+            sub_icon = "❌"
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        f"Suscribed {sub_icon}", callback_data=f"sub{team_id}"
+                    )
+                ]
+            ]
+    
+            if query.message.text:
+                old_text = query.message.text
+            else:
+                old_text = "Team Info"
+            _ = await query.answer(text="Subscription removed!", show_alert=True)
+            _ = await query.edit_message_text(
+                text=old_text, reply_markup=InlineKeyboardMarkup(keyboard)
+            )
 
 
 if __name__ == "__main__":
