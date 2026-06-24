@@ -14,6 +14,15 @@ class Subscription(SQLModel, table=True):
     team_id: int = Field(nullable=False, foreign_key="team.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(), nullable=False)
 
+class Live_Match(SQLModel, table=True):
+    match_id: str = Field(nullable=False, primary_key=True)
+    home_team_id: int = Field(nullable=False, foreign_key="team.id")
+    away_team_id: int = Field(nullable=False, foreign_key="team.id")
+    home_score: int = Field(default=0, nullable=False)
+    away_score: int = Field(default=0, nullable=False)
+    clock_time: str = Field(default="0'", nullable=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(), nullable=False)
+
 engine = create_engine("sqlite:///database/database.db")
 
 
@@ -35,6 +44,11 @@ async def add_subscription(chat_id: str, team_id: int):
         session.add(subscription)
         session.commit()
 
+async def get_subscribers(team_id: int) -> list[str]:
+    with Session(engine) as session:
+        statement = select(Subscription.chat_id).where(Subscription.team_id == team_id)
+        results = session.exec(statement)
+        return [row[0] for row in results.all()]
 
 async def get_subscription_for_team(chat_id: str, team_id: int) -> bool:
     with Session(engine) as session:
@@ -55,6 +69,12 @@ async def remove_subscription(chat_id: str, team_id: int):
         if subscription:
             session.delete(subscription)
             session.commit()
+
+async def get_subscription(chat_id: str) -> list[Subscription]:
+    with Session(engine) as session:
+        statement = select(Subscription).where(Subscription.chat_id == chat_id)
+        results = session.exec(statement)
+        return list(results.all())
 
 
 ####################################
@@ -80,7 +100,7 @@ async def add_team(team_id: int, team_name: str, logo_url: str):
             team_name=team_name,
             logo_url=logo_url,
         )
-        _ = session.merge(team)  # Use merge to avoid duplicates
+        _ = session.merge(team)  
         session.commit()
 
 

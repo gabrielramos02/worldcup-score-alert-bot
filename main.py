@@ -1,8 +1,6 @@
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
     Update,
 )
 from telegram.ext import (
@@ -16,10 +14,20 @@ from telegram.ext import (
 
 import logging
 
-from src.api_request import get_from_url, get_team_info, get_teams_list
+from src.api_request import (
+    LIVE_MATCHES_STATE,
+    get_from_url,
+    get_live_matches,
+    get_team_info,
+    get_teams_list,
+)
 from src.config import BOT_TOKEN
 from database.manager import (
+    Team,
+    get_subscribers,
     get_subscription_for_team,
+    get_subscriptions_for_team,
+    get_team,
     remove_subscription,
     add_subscription,
 )
@@ -29,6 +37,8 @@ logging.basicConfig(
     format="(%(asctime)s) %(levelname)s %(message)s",
     datefmt="%m/%d/%y - %H:%M:%S %Z",
 )
+
+############ Commands ############
 
 
 async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -71,6 +81,57 @@ async def team_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _ = await update.message.reply_text(
                 mensaje_final, reply_markup=reply_markup
             )
+
+
+async def live_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    live_matches_list = await get_live_matches()
+    if live_matches_list:
+        mensaje_final = "Live Matches:\n"
+        for match in live_matches_list:
+            home_team = await get_team(match.home_team_id)
+            away_team = await get_team(match.away_team_id)
+            if home_team and away_team:
+                mensaje_final += f"{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
+        if update.message:
+            _ = await update.message.reply_text(mensaje_final)
+
+
+############ Repeating Job ############
+
+
+async def check_live_results(context: ContextTypes.DEFAULT_TYPE):
+    live_matches_list = await get_live_matches()
+    for match in live_matches_list:
+        for match_state in LIVE_MATCHES_STATE:
+            if match.match_id == match_state.match_id:
+                if (
+                    match.home_score != match_state.home_score
+                    or match.away_score != match_state.away_score
+                ):
+                    mensaje_final = ""
+                    home_team = await get_team(match.home_team_id)
+                    away_team = await get_team(match.away_team_id)
+                    if home_team and away_team:
+                        if match.home_score > match_state.home_score:
+                            mensaje_final = f"Goal! {home_team.team_name} scored!\n{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
+                    elif match.away_score > match_state.away_score:
+                        if home_team and away_team:
+                            mensaje_final = f"Goal! {away_team.team_name} scored!\n{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
+                    subscriptions_home = await get_subscribers(
+                        team_id=match.home_team_id,
+                    )
+                    subscriptions_away = await get_subscribers(
+                        team_id=match.away_team_id,
+                    )
+                    subscribers = subscriptions_home + subscriptions_away
+                    for subscriber in subscribers:
+                        _ = await context.bot.send_message(
+                            chat_id=subscriber, text=mensaje_final
+                        )
+                break
+
+
+############# Callbacks #############
 
 
 async def sub_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -128,14 +189,19 @@ async def sub_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     application = ApplicationBuilder().token(str(BOT_TOKEN)).build()
+    job_queue = application.job_queue
+    if job_queue:
+        _ = job_queue.run_repeating(check_live_results, interval=60, first=10)
 
     # start_handler = CommandHandler("start", start)
     list_handler = CommandHandler("list", list)
     team_info_handler = MessageHandler(filters.Regex(r"^/i_\d+$"), team_info)
+    get_live_matches_handler = CommandHandler("live", live_matches)
 
     # application.add_handler(start_handler)
     application.add_handler(list_handler)
     application.add_handler(team_info_handler)
+    application.add_handler(get_live_matches_handler)
     application.add_handler(CallbackQueryHandler(sub_button))
 
     application.run_polling()
