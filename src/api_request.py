@@ -187,11 +187,6 @@ async def get_live_matches() -> list[Live_Match]:
                 serialized = json.loads(html)
                 events = serialized.get("events", [])
                 for event in events:
-                    is_live = (
-                        event.get("status", {}).get("type", {}).get("state", "") == "in"
-                    )
-                    if not is_live:
-                        continue
                     match_id = event.get("id", "")
                     home_team_id = (
                         event.get("competitions", [{}])[0]

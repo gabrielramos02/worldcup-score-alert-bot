@@ -86,24 +86,27 @@ async def team_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def live_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
     live_matches_list = await get_live_matches()
+    mensaje_final = ""
     if live_matches_list:
         mensaje_final = "Live Matches:\n"
         for match in live_matches_list:
-            home_team = await get_team(match.home_team_id)
-            away_team = await get_team(match.away_team_id)
-            if home_team and away_team:
-                mensaje_final += f"{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
-        if update.message:
-            _ = await update.message.reply_text(mensaje_final)
+            if match.is_live:
+                home_team = await get_team(match.home_team_id)
+                away_team = await get_team(match.away_team_id)
+                if home_team and away_team:
+                    mensaje_final += f"{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
+    print(len(mensaje_final))
+    if len(mensaje_final) < 15:
+        mensaje_final = "No live matches at the moment."
     if update.message:
-        _ = await update.message.reply_text("No live matches at the moment.")
+        _ = await update.message.reply_text(mensaje_final)
 
 
 async def today_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today_matches_list = await get_matches_from_date(datetime.now())
     mensaje_final = "Today's Matches:\n"
     for match in today_matches_list:
-        print(match.get("home_team_id"), match.get("away_team_id"))
+        logging.info(f"Processing match: {match.get('match_id', 'Unknown')}")
         home_team = await get_team(int(match.get("home_team_id", 0)))
         away_team = await get_team(int(match.get("away_team_id", 0)))
         home_score = match.get("home_score", None)
@@ -146,7 +149,8 @@ async def check_live_results(context: ContextTypes.DEFAULT_TYPE):
                 if match_state.is_live and not match.is_live:
                     logging.info(f"Match ended: {match_state.match_id}")
                     live_matches_state.remove(match_state)
-                    mensaje_final = f"Match ended: {match_state.home_team_id} {match_state.home_score} - {match_state.away_score} {match_state.away_team_id}\n"
+                    if home_team and away_team:
+                        mensaje_final = f"Match ended: {home_team.team_name} {match_state.home_score} - {match_state.away_score} {home_team.team_name}\n"
                     break
 
                 elif (
