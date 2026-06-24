@@ -2,17 +2,20 @@ from datetime import datetime
 
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
+
 class Team(SQLModel, table=True):
     id: int = Field(primary_key=True)
     team_name: str = Field(nullable=False)
     logo_url: str = Field(nullable=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(), nullable=False)
 
+
 class Subscription(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     chat_id: str = Field(nullable=False)
     team_id: int = Field(nullable=False, foreign_key="team.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(), nullable=False)
+
 
 class Live_Match(SQLModel, table=True):
     match_id: str = Field(nullable=False, primary_key=True)
@@ -23,6 +26,7 @@ class Live_Match(SQLModel, table=True):
     clock_time: str = Field(default="0'", nullable=True)
     is_live: bool = Field(default=False, nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(), nullable=False)
+
 
 engine = create_engine("sqlite:///database/database.db")
 
@@ -45,11 +49,13 @@ async def add_subscription(chat_id: str, team_id: int):
         session.add(subscription)
         session.commit()
 
+
 async def get_subscribers(team_id: int) -> list[str]:
     with Session(engine) as session:
         statement = select(Subscription.chat_id).where(Subscription.team_id == team_id)
         results = session.exec(statement)
-        return [row[0] for row in results.all()]
+        return list(results.all())
+
 
 async def get_subscription_for_team(chat_id: str, team_id: int) -> bool:
     with Session(engine) as session:
@@ -70,6 +76,7 @@ async def remove_subscription(chat_id: str, team_id: int):
         if subscription:
             session.delete(subscription)
             session.commit()
+
 
 async def get_subscription(chat_id: str) -> list[Subscription]:
     with Session(engine) as session:
@@ -101,7 +108,7 @@ async def add_team(team_id: int, team_name: str, logo_url: str):
             team_name=team_name,
             logo_url=logo_url,
         )
-        _ = session.merge(team)  
+        _ = session.merge(team)
         session.commit()
 
 

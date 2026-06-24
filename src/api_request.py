@@ -173,8 +173,7 @@ async def get_matches_from_date(date: datetime) -> list[dict[str, str]]:
                     )
             return matches
 
-
-LIVE_MATCHES_STATE: list[Live_Match] = []
+live_matches_state: list[Live_Match] = []
 
 
 async def get_live_matches() -> list[Live_Match]:

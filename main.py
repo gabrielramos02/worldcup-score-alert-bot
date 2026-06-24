@@ -17,8 +17,7 @@ from telegram.ext import (
 import logging
 
 from src.api_request import (
-    LIVE_MATCHES_STATE,
-    get_from_url,
+    live_matches_state,
     get_live_matches,
     get_matches_from_date,
     get_team_info,
@@ -127,12 +126,26 @@ async def today_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def check_live_results(context: ContextTypes.DEFAULT_TYPE):
     live_matches_list = await get_live_matches()
+    global live_matches_state
+    if not live_matches_state:
+        logging.info("Initializing live_matches_state with current live matches.")
+        live_matches_state = live_matches_list
+        return
+
     for match in live_matches_list:
         mensaje_final = ""
-        for match_state in LIVE_MATCHES_STATE:
+        home_team = await get_team(match.home_team_id)
+        away_team = await get_team(match.away_team_id)
+        match_found = False
+        for match_state in live_matches_state:
             if match.match_id == match_state.match_id:
+                logging.info(
+                    f"Match found in LIVE_MATCHES_STATE: {match_state.match_id}"
+                )
+                match_found = True
                 if match_state.is_live and not match.is_live:
-                    LIVE_MATCHES_STATE.remove(match_state)
+                    logging.info(f"Match ended: {match_state.match_id}")
+                    live_matches_state.remove(match_state)
                     mensaje_final = f"Match ended: {match_state.home_team_id} {match_state.home_score} - {match_state.away_score} {match_state.away_team_id}\n"
                     break
 
@@ -140,34 +153,36 @@ async def check_live_results(context: ContextTypes.DEFAULT_TYPE):
                     match.home_score != match_state.home_score
                     or match.away_score != match_state.away_score
                 ):
-                    home_team = await get_team(match.home_team_id)
-                    away_team = await get_team(match.away_team_id)
-                    if home_team and away_team:
-                        if match.home_score > match_state.home_score:
+                    logging.info(f"Score changed for match: {match_state.match_id}")
+                    if match.home_score > match_state.home_score:
+                        if home_team and away_team:
                             mensaje_final = f"Goal! {home_team.team_name} scored!\n{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
                     elif match.away_score > match_state.away_score:
                         if home_team and away_team:
                             mensaje_final = f"Goal! {away_team.team_name} scored!\n{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
-                break
-            else:
-                LIVE_MATCHES_STATE.append(match)
-                mensaje_final = f"New match started: {match.home_team_id} vs {match.away_team_id}\n"
+                    live_matches_state.remove(match_state)
+                    live_matches_state.append(match)
+                    break
+                logging.info(f"No changes for match: {match_state.match_id}")
+
+        if not match_found and match.is_live:
+            if home_team and away_team:
+                logging.info(f"New match started: {match.match_id}")
+                live_matches_state.append(match)
+                mensaje_final = f"New match started: {home_team.team_name} vs {away_team.team_name}\n"
         if mensaje_final != "":
             subscriptions_home = await get_subscribers(
-                    team_id=match.home_team_id,
-                    )
+                team_id=match.home_team_id,
+            )
             subscriptions_away = await get_subscribers(
-                        team_id=match.away_team_id,
-                    )
+                team_id=match.away_team_id,
+            )
             subscribers = subscriptions_home + subscriptions_away
             for subscriber in subscribers:
+                logging.info(f"Sending message to subscriber: {subscriber}")
                 _ = await context.bot.send_message(
-                            chat_id=subscriber, text=mensaje_final
-                        )
-
-
-
-
+                    chat_id=subscriber, text=mensaje_final
+                )
 
 
 ############# Callbacks #############
