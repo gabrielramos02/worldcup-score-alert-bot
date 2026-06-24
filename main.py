@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -18,6 +20,7 @@ from src.api_request import (
     LIVE_MATCHES_STATE,
     get_from_url,
     get_live_matches,
+    get_matches_from_date,
     get_team_info,
     get_teams_list,
 )
@@ -26,7 +29,6 @@ from database.manager import (
     Team,
     get_subscribers,
     get_subscription_for_team,
-    get_subscriptions_for_team,
     get_team,
     remove_subscription,
     add_subscription,
@@ -94,6 +96,31 @@ async def live_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 mensaje_final += f"{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
         if update.message:
             _ = await update.message.reply_text(mensaje_final)
+    if update.message:
+        _ = await update.message.reply_text("No live matches at the moment.")
+
+
+async def today_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    today_matches_list = await get_matches_from_date(datetime.now())
+    mensaje_final = "Today's Matches:\n"
+    for match in today_matches_list:
+        print(match.get("home_team_id"), match.get("away_team_id"))
+        home_team = await get_team(int(match.get("home_team_id", 0)))
+        away_team = await get_team(int(match.get("away_team_id", 0)))
+        home_score = match.get("home_score", None)
+        away_score = match.get("away_score", None)
+        clock_time = match.get("clock_time", None)
+        date_time = match.get("date_time", "")
+        is_live = match.get("is_live", False)
+
+        if home_team and away_team:
+            if is_live:
+                mensaje_final += f"{home_team.team_name} {home_score} - {away_score} {away_team.team_name}\n clock: {clock_time}\n"
+            else:
+                mensaje_final += f"{home_team.team_name} vs {away_team.team_name}\n date: {date_time}\n"
+    if update.message:
+        _ = await update.message.reply_text(mensaje_final)
+
 
 
 ############ Repeating Job ############
@@ -197,11 +224,13 @@ if __name__ == "__main__":
     list_handler = CommandHandler("list", list)
     team_info_handler = MessageHandler(filters.Regex(r"^/i_\d+$"), team_info)
     get_live_matches_handler = CommandHandler("live", live_matches)
+    today_matches_handler = CommandHandler("today", today_matches)
 
     # application.add_handler(start_handler)
     application.add_handler(list_handler)
     application.add_handler(team_info_handler)
     application.add_handler(get_live_matches_handler)
+    application.add_handler(today_matches_handler)
     application.add_handler(CallbackQueryHandler(sub_button))
 
     application.run_polling()
