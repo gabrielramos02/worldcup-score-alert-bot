@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from operator import contains
 
@@ -189,6 +190,7 @@ async def check_live_results(context: ContextTypes.DEFAULT_TYPE):
                 _ = await context.bot.send_message(
                     chat_id=subscriber, text=mensaje_final
                 )
+                await asyncio.sleep(0.05)
 
 
 ############# Callbacks #############
