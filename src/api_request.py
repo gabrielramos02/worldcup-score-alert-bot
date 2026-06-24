@@ -154,6 +154,7 @@ async def get_matches_from_date(date: datetime) -> list[dict[str, str]]:
                     is_live = (
                         event.get("status", {}).get("type", {}).get("state", "") == "in"
                     )
+                    status = event.get("status", {}).get("type", {}).get("name", "")
                     matches.append(
                         {
                             "match_id": match_id,
@@ -169,6 +170,7 @@ async def get_matches_from_date(date: datetime) -> list[dict[str, str]]:
                                 else ""
                             ),
                             "is_live": is_live,
+                            "status": status,
                         }
                     )
             return matches
