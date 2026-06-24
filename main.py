@@ -18,7 +18,11 @@ import logging
 
 from src.api_request import get_from_url, get_team_info, get_teams_list
 from src.config import BOT_TOKEN
-from database.manager import get_subscription_for_team, remove_subscription, test_database, add_subscription
+from database.manager import (
+    get_subscription_for_team,
+    remove_subscription,
+    add_subscription,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,9 +40,7 @@ async def list(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
     # TODO:  add more info to the list
-    mensaje_final = "\n".join(
-        f"• {team["displayName"]} /i_{team["id"]}" for team in response
-    )
+    mensaje_final = "\n".join(f"• {team.team_name} /i_{team.id}" for team in response)
 
     if update.message:
         _ = await update.message.reply_text(mensaje_final)
@@ -48,7 +50,11 @@ async def team_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text:
         team_id = update.message.text.split("_")[1]
         response = await get_team_info(team_id)
-        display_name = response.get("displayName", "Unknown Team")
+        if response is None:
+            if update.message:
+                _ = await update.message.reply_text("Team not found.")
+            return
+        display_name = response.team_name
         mensaje_final = f"Team Info:\nName: {display_name}\n"
         suscribed = await get_subscription_for_team(
             chat_id=str(update.message.chat.id), team_id=int(team_id)
@@ -85,7 +91,7 @@ async def sub_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                 ]
             ]
-    
+
             if query.message.text:
                 old_text = query.message.text
             else:
@@ -109,7 +115,7 @@ async def sub_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                 ]
             ]
-    
+
             if query.message.text:
                 old_text = query.message.text
             else:
