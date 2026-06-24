@@ -1,4 +1,5 @@
 from datetime import datetime
+from operator import contains
 
 from telegram import (
     InlineKeyboardButton,
@@ -114,10 +115,11 @@ async def today_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
         clock_time = match.get("clock_time", None)
         date_time = match.get("date_time", "")
         is_live = match.get("is_live", False)
+        status = match.get("status", "")
 
         if home_team and away_team:
-            if is_live:
-                mensaje_final += f"{home_team.team_name} {home_score} - {away_score} {away_team.team_name}\n clock: {clock_time}\n"
+            if is_live or "full_time" in status.lower():
+                mensaje_final += f"{home_team.team_name} {home_score} - {away_score} {away_team.team_name}\n clock: {clock_time if clock_time else "Full Time"}\n"
             else:
                 mensaje_final += f"{home_team.team_name} vs {away_team.team_name}\n date: {date_time}\n"
     if update.message:
