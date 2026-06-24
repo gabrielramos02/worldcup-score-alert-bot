@@ -21,6 +21,7 @@ class Live_Match(SQLModel, table=True):
     home_score: int = Field(default=0, nullable=False)
     away_score: int = Field(default=0, nullable=False)
     clock_time: str = Field(default="0'", nullable=True)
+    is_live: bool = Field(default=False, nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(), nullable=False)
 
 engine = create_engine("sqlite:///database/database.db")

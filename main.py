@@ -122,20 +122,24 @@ async def today_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _ = await update.message.reply_text(mensaje_final)
 
 
-
 ############ Repeating Job ############
 
 
 async def check_live_results(context: ContextTypes.DEFAULT_TYPE):
     live_matches_list = await get_live_matches()
     for match in live_matches_list:
+        mensaje_final = ""
         for match_state in LIVE_MATCHES_STATE:
             if match.match_id == match_state.match_id:
-                if (
+                if match_state.is_live and not match.is_live:
+                    LIVE_MATCHES_STATE.remove(match_state)
+                    mensaje_final = f"Match ended: {match_state.home_team_id} {match_state.home_score} - {match_state.away_score} {match_state.away_team_id}\n"
+                    break
+
+                elif (
                     match.home_score != match_state.home_score
                     or match.away_score != match_state.away_score
                 ):
-                    mensaje_final = ""
                     home_team = await get_team(match.home_team_id)
                     away_team = await get_team(match.away_team_id)
                     if home_team and away_team:
@@ -144,18 +148,26 @@ async def check_live_results(context: ContextTypes.DEFAULT_TYPE):
                     elif match.away_score > match_state.away_score:
                         if home_team and away_team:
                             mensaje_final = f"Goal! {away_team.team_name} scored!\n{home_team.team_name} {match.home_score} - {match.away_score} {away_team.team_name}\n clock: {match.clock_time}\n"
-                    subscriptions_home = await get_subscribers(
-                        team_id=match.home_team_id,
+                break
+            else:
+                LIVE_MATCHES_STATE.append(match)
+                mensaje_final = f"New match started: {match.home_team_id} vs {match.away_team_id}\n"
+        if mensaje_final != "":
+            subscriptions_home = await get_subscribers(
+                    team_id=match.home_team_id,
                     )
-                    subscriptions_away = await get_subscribers(
+            subscriptions_away = await get_subscribers(
                         team_id=match.away_team_id,
                     )
-                    subscribers = subscriptions_home + subscriptions_away
-                    for subscriber in subscribers:
-                        _ = await context.bot.send_message(
+            subscribers = subscriptions_home + subscriptions_away
+            for subscriber in subscribers:
+                _ = await context.bot.send_message(
                             chat_id=subscriber, text=mensaje_final
                         )
-                break
+
+
+
+
 
 
 ############# Callbacks #############

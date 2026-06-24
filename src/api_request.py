@@ -221,6 +221,9 @@ async def get_live_matches() -> list[Live_Match]:
                         .get("status", {})
                         .get("displayClock", "")
                     )
+                    is_live = (
+                        event.get("status", {}).get("type", {}).get("state", "") == "in"
+                    )
                     LIVE_MATCHES.append(
                         Live_Match(
                             match_id=match_id,
@@ -229,6 +232,7 @@ async def get_live_matches() -> list[Live_Match]:
                             home_score=int(home_score) if home_score else 0,
                             away_score=int(away_score) if away_score else 0,
                             clock_time=clock_time if clock_time else "0'",
+                            is_live=is_live,
                         )
                     )
             return LIVE_MATCHES
